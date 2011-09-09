@@ -1,0 +1,92 @@
+= ActsAsJuggerSource
+
+
+This plugins provides an ``acts_as_jugger_source`` method for all
+ActiveRecord's models. When you declare a model as a jugger source,
+then whenever, you change, create or destroy an instance of a model a
+notification will be sent to Juggernaut.
+
+== Sample usage
+
+The basic use of this plugins is like this:
+
+    class MyModel < ActiveRecord::Base
+      acts_as_jugger_source
+    end
+
+Whenever you create, save or destroy an instance of this model a
+notification to the channel 'MyModel' of Juggernaut will be sent.
+
+== Customizing the channel name
+
+By default, acts_as_jugger_source will sent notifications to the
+channel with the same name as the model. This means that:
+
+   model = MyModel.new
+   model.save!
+
+Will sent notifications to the channel named "MyModel". This can be
+overrided with the ``:channel`` option:
+
+   class Somemodel < ActiveRecord::Base
+     acts_as_jugger_source :channel => 'some-deliverate-channel'
+   end
+
+Notifications received by a Juggernaut subscriber (mostly a browser)
+with contain a payload with three attributes:
+
+- ``operation``, which will be either "save", "create" or "destroy",
+
+- ``model``, which will be the name of the model class; and
+
+- ``instance``, which will constain a shallow copy (created with the
+  to_json method) of the model instance.
+
+== Sending the desired notifications
+
+By default, acts_as_jugger_source will emit notifications for
+after_save after_create and after_destroy events. You may select the
+desired events with the ``operations`` options:
+
+  class Somemodel
+    acts_as_jugger_source :operations => [:save, :destroy]
+  end
+
+== Advanced features
+
+You can provide a block to the acts_as_jugger_source method. This
+block will be invoked with three arguments:
+
+- Opertation, which is either :save, :create or :destroy.
+- The Model class.
+- The model instance.
+
+If the block returns a value it must be a Hash with an :operation,
+:model, and :instance keys. If any of these are omitted, the
+corresponding argument will be used; then this value will be used to
+build the payload for the notification.
+
+The result could be also a list of hashes. The hashes should have the
+same format as the single Hash described above. When the block returns
+this list, then this plugin will emmit several notifications to
+Juggernaut.
+
+=== Cascade notifications
+
+Sometimes you may want to emit several 'cascading' notifications when
+a model changes.
+
+For instance you have a Issue model that belongs to a Project. You
+want that whenever a Issue is saved, the Project which it belongs to
+should be notified:
+
+   class Issue
+     acts_as_jugger_source :channel => 'musqueteers' do |o, m, i|
+       result = [build_jugger_event(o, m, i)]
+       result << build_jugger_event(:save, Project, i.project) if i.project
+     end
+   end
+
+Notice that both notifications are sent to the same channel!
+
+Copyright (c) 2011 Universidad de las Ciencias Informáticas.
